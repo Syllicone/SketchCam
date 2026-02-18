@@ -963,14 +963,14 @@ function updateSimUI(pct) {
   simNum.textContent = pct + '%';
   simBar.style.width = pct + '%';
 
-  if (pct >= 60) {
+  if (pct >= 35) {
     simNum.style.color = 'var(--success)';
     simBar.style.background = 'var(--success)';
     shutterBtn.disabled = false;
     shutterBtn.classList.add('unlocked');
     note.style.color = 'var(--success)';
     note.textContent = '✓ Match achieved — shoot!';
-  } else if (pct >= 30) {
+  } else if (pct >= 15) {
     simNum.style.color = 'var(--accent)';
     simBar.style.background = 'var(--accent)';
     shutterBtn.disabled = true;
@@ -978,12 +978,12 @@ function updateSimUI(pct) {
     note.style.color = 'var(--muted)';
     note.textContent = 'Getting closer — align the scene';
   } else {
-    simNum.style.color = 'var(--text)';
+    simNum.style.color = 'var(--muted)';
     simBar.style.background = 'var(--muted)';
     shutterBtn.disabled = true;
     shutterBtn.classList.remove('unlocked');
     note.style.color = 'var(--muted)';
-    note.textContent = 'Need 60% match to shoot';
+    note.textContent = 'Need 35% match to shoot';
   }
 }
 
