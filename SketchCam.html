@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SketchShot</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Bebas+Neue&display=swap');
+
+  :root {
+    --bg: #0a0a0a;
+    --surface: #111;
+    --border: #222;
+    --accent: #e8ff00;
+    --accent2: #ff4d00;
+    --text: #f0f0f0;
+    --muted: #555;
+    --success: #00ff88;
+    --danger: #ff2244;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    height: 100dvh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* HEADER */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    letter-spacing: 3px;
+    color: var(--accent);
+  }
+
+  .phase-indicator {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .phase-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--border);
+    transition: background 0.3s;
+  }
+  .phase-dot.active { background: var(--accent); }
+  .phase-dot.done { background: var(--success); }
+
+  /* MAIN AREA */
+  main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s;
+  }
+  .screen.active {
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  /* ===== DRAW SCREEN ===== */
+  .draw-header {
+    padding: 10px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+  }
+
+  .draw-hint {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .tools {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .tool-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 12px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    transition: all 0.15s;
+  }
+  .tool-btn:active { background: var(--accent); color: #000; border-color: var(--accent); }
+  .tool-btn.active { background: var(--accent); color: #000; border-color: var(--accent); }
+
+  .canvas-wrapper {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+
+  #drawCanvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    cursor: crosshair;
+    touch-action: none;
+  }
+
+  .brush-controls {
+    padding: 10px 16px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .brush-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+
+  input[type=range] {
+    -webkit-appearance: none;
+    flex: 1;
+    height: 2px;
+    background: var(--border);
+    outline: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+  }
+
+  .color-swatches {
+    display: flex;
+    gap: 6px;
+  }
+
+  .swatch {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: border-color 0.2s;
+  }
+  .swatch.selected { border-color: var(--accent); }
+
+  .proceed-btn {
+    margin: 10px 16px;
+    padding: 14px;
+    background: var(--accent);
+    color: #000;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 20px;
+    letter-spacing: 3px;
+    border: none;
+    cursor: pointer;
+    width: calc(100% - 32px);
+    transition: transform 0.1s;
+    flex-shrink: 0;
+  }
+  .proceed-btn:active { transform: scale(0.98); }
+  .proceed-btn:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
+
+  /* ===== COMPARE SCREEN ===== */
+  .compare-container {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+
+  #videoEl {
+    position: absolute;
+    inset: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+  }
+
+  #edgeCanvas {
+    position: absolute;
+    inset: 0;
+    width: 100%; height: 100%;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  #overlayCanvas {
+    position: absolute;
+    inset: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+  }
+
+  .sketch-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-size: cover;
+    background-position: center;
+    opacity: 0.4;
+    mix-blend-mode: screen;
+    transition: opacity 0.3s;
+  }
+
+  .compare-hud {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    padding: 12px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent);
+  }
+
+  .similarity-display {
+    text-align: center;
+  }
+
+  .similarity-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 56px;
+    line-height: 1;
+    transition: color 0.3s;
+  }
+
+  .similarity-label {
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+
+  .similarity-bar-wrap {
+    width: 120px;
+    height: 4px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 2px;
+    margin-top: 6px;
+    overflow: hidden;
+  }
+  .similarity-bar {
+    height: 100%;
+    background: var(--muted);
+    border-radius: 2px;
+    transition: width 0.3s, background 0.3s;
+    width: 0%;
+  }
+
+  .view-toggle {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .toggle-btn {
+    background: rgba(0,0,0,0.5);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: var(--text);
+    padding: 6px 10px;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: all 0.15s;
+  }
+  .toggle-btn.active { background: rgba(232,255,0,0.2); border-color: var(--accent); color: var(--accent); }
+
+  .compare-bottom {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    padding: 16px;
+    background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .threshold-note {
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .shutter-btn {
+    width: 72px; height: 72px;
+    border-radius: 50%;
+    border: 3px solid rgba(255,255,255,0.3);
+    background: rgba(255,255,255,0.15);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    position: relative;
+  }
+  .shutter-btn::after {
+    content: '';
+    width: 52px; height: 52px;
+    border-radius: 50%;
+    background: white;
+    transition: all 0.2s;
+  }
+  .shutter-btn.unlocked {
+    border-color: var(--success);
+  }
+  .shutter-btn.unlocked::after {
+    background: var(--success);
+    box-shadow: 0 0 20px var(--success);
+  }
+  .shutter-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .shutter-btn:not(:disabled):active {
+    transform: scale(0.92);
+  }
+
+  .back-btn {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 16px;
+  }
+
+  /* ===== RESULT SCREEN ===== */
+  .result-screen {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    gap: 16px;
+  }
+
+  #resultCanvas {
+    width: 100%;
+    max-height: 60vh;
+    object-fit: contain;
+    border: 1px solid var(--border);
+  }
+
+  .result-meta {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+  }
+
+  .result-score {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 48px;
+    color: var(--success);
+  }
+
+  .result-label {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .result-actions {
+    display: flex;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .result-btn {
+    flex: 1;
+    padding: 14px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px;
+    letter-spacing: 2px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .result-btn.primary { background: var(--accent); color: #000; border-color: var(--accent); }
+  .result-btn.secondary { background: transparent; color: var(--text); }
+
+  /* FLASH */
+  .flash {
+    position: fixed;
+    inset: 0;
+    background: white;
+    pointer-events: none;
+    opacity: 0;
+    z-index: 999;
+    transition: opacity 0.05s;
+  }
+  .flash.go { opacity: 1; }
+
+  /* STATUS MESSAGES */
+  .status-toast {
+    position: fixed;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.85);
+    border: 1px solid var(--border);
+    padding: 8px 16px;
+    font-size: 12px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    white-space: nowrap;
+    z-index: 100;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .status-toast.show { opacity: 1; }
+
+  /* Loading */
+  .loading-text {
+    font-size: 12px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
+
+  .camera-permission {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    height: 100%;
+    padding: 24px;
+    text-align: center;
+  }
+  .perm-icon { font-size: 48px; }
+  .perm-title { font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 2px; }
+  .perm-text { font-size: 12px; color: var(--muted); line-height: 1.6; }
+  .perm-btn {
+    padding: 12px 28px;
+    background: var(--accent);
+    color: #000;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 20px;
+    letter-spacing: 2px;
+    border: none;
+    cursor: pointer;
+    margin-top: 8px;
+  }
+
+  /* Eraser indicator */
+  .mode-badge {
+    padding: 4px 10px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
+  .mode-badge.erase { color: var(--accent2); border-color: var(--accent2); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">SketchShot</div>
+  <div class="phase-indicator">
+    <div class="phase-dot active" id="dot1"></div>
+    <span id="phaseLabel">DRAW</span>
+    <div class="phase-dot" id="dot2"></div>
+  </div>
+</header>
+
+<main>
+  <!-- DRAW SCREEN -->
+  <div class="screen active" id="drawScreen">
+    <div class="draw-header">
+      <span class="draw-hint">Sketch your composition</span>
+      <div class="tools">
+        <div class="mode-badge" id="modeBadge">DRAW</div>
+        <button class="tool-btn" id="eraserBtn" onclick="toggleEraser()">Erase</button>
+        <button class="tool-btn" onclick="clearCanvas()">Clear</button>
+      </div>
+    </div>
+
+    <div class="canvas-wrapper">
+      <canvas id="drawCanvas"></canvas>
+    </div>
+
+    <div class="brush-controls">
+      <span class="brush-label">Size</span>
+      <input type="range" id="brushSize" min="2" max="30" value="4">
+      <div class="color-swatches">
+        <div class="swatch selected" style="background:#f0f0f0" data-color="#f0f0f0" onclick="selectColor(this)"></div>
+        <div class="swatch" style="background:#888" data-color="#888888" onclick="selectColor(this)"></div>
+        <div class="swatch" style="background:#444" data-color="#444444" onclick="selectColor(this)"></div>
+        <div class="swatch" style="background:#e8ff00" data-color="#e8ff00" onclick="selectColor(this)"></div>
+        <div class="swatch" style="background:#ff4d00" data-color="#ff4d00" onclick="selectColor(this)"></div>
+      </div>
+    </div>
+
+    <button class="proceed-btn" id="proceedBtn" onclick="goToCompare()" disabled>
+      PROCEED TO CAMERA →
+    </button>
+  </div>
+
+  <!-- COMPARE SCREEN -->
+  <div class="screen" id="compareScreen">
+    <div class="compare-container" id="compareContainer">
+
+      <!-- Camera + canvases -->
+      <video id="videoEl" autoplay playsinline muted></video>
+      <canvas id="edgeCanvas"></canvas>
+      <div class="sketch-overlay" id="sketchOverlay"></div>
+      <canvas id="overlayCanvas"></canvas>
+
+      <!-- Camera permission fallback -->
+      <div class="camera-permission" id="camPermission" style="display:none">
+        <div class="perm-icon">📷</div>
+        <div class="perm-title">Camera Access</div>
+        <div class="perm-text">SketchShot needs your camera to compare your sketch to the real scene.</div>
+        <button class="perm-btn" onclick="startCamera()">Allow Camera</button>
+      </div>
+
+      <!-- HUD -->
+      <div class="compare-hud">
+        <div class="similarity-display">
+          <div class="similarity-num" id="simNum">0%</div>
+          <div class="similarity-label">Match</div>
+          <div class="similarity-bar-wrap">
+            <div class="similarity-bar" id="simBar"></div>
+          </div>
+        </div>
+        <div class="view-toggle">
+          <button class="toggle-btn active" id="btnCamera" onclick="setView('camera')">Camera</button>
+          <button class="toggle-btn" id="btnEdge" onclick="setView('edge')">Edges</button>
+          <button class="toggle-btn" id="btnOverlay" onclick="setView('overlay')">Overlay</button>
+        </div>
+      </div>
+
+      <!-- Bottom controls -->
+      <div class="compare-bottom">
+        <div class="threshold-note" id="thresholdNote">Need 60% match to shoot</div>
+        <button class="shutter-btn" id="shutterBtn" disabled onclick="capturePhoto()"></button>
+        <button class="tool-btn" onclick="goBack()" style="margin-top:4px">← Redraw</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RESULT SCREEN -->
+  <div class="screen" id="resultScreen">
+    <div class="result-screen">
+      <canvas id="resultCanvas"></canvas>
+      <div class="result-meta">
+        <div>
+          <div class="result-score" id="resultScore">80%</div>
+          <div class="result-label">Final Match</div>
+        </div>
+      </div>
+      <div class="result-actions">
+        <button class="result-btn secondary" onclick="goBack2()">← Redo</button>
+        <button class="result-btn primary" onclick="savePhoto()">Save ↓</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div class="flash" id="flash"></div>
+<div class="status-toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════
+// DRAWING
+// ═══════════════════════════════════
+const drawCanvas = document.getElementById('drawCanvas');
+const ctx = drawCanvas.getContext('2d');
+let isDrawing = false;
+let lastX = 0, lastY = 0;
+let eraseMode = false;
+let strokeColor = '#f0f0f0';
+let brushSize = 4;
+let hasDrawn = false;
+
+function resizeDrawCanvas() {
+  const wrapper = drawCanvas.parentElement;
+  const imageData = ctx.getImageData(0, 0, drawCanvas.width, drawCanvas.height);
+  drawCanvas.width = wrapper.clientWidth;
+  drawCanvas.height = wrapper.clientHeight;
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, drawCanvas.width, drawCanvas.height);
+  ctx.putImageData(imageData, 0, 0);
+}
+
+window.addEventListener('resize', resizeDrawCanvas);
+resizeDrawCanvas();
+
+function getPos(e) {
+  const rect = drawCanvas.getBoundingClientRect();
+  const src = e.touches ? e.touches[0] : e;
+  return [
+    (src.clientX - rect.left) * (drawCanvas.width / rect.width),
+    (src.clientY - rect.top) * (drawCanvas.height / rect.height)
+  ];
+}
+
+function startDraw(e) {
+  e.preventDefault();
+  isDrawing = true;
+  [lastX, lastY] = getPos(e);
+}
+
+function draw(e) {
+  e.preventDefault();
+  if (!isDrawing) return;
+  const [x, y] = getPos(e);
+  ctx.globalCompositeOperation = eraseMode ? 'destination-out' : 'source-over';
+  ctx.beginPath();
+  ctx.moveTo(lastX, lastY);
+  ctx.lineTo(x, y);
+  ctx.strokeStyle = eraseMode ? 'rgba(0,0,0,1)' : strokeColor;
+  ctx.lineWidth = eraseMode ? brushSize * 3 : brushSize;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+  [lastX, lastY] = [x, y];
+  if (!hasDrawn) {
+    hasDrawn = true;
+    document.getElementById('proceedBtn').disabled = false;
+  }
+}
+
+function stopDraw() { isDrawing = false; }
+
+drawCanvas.addEventListener('mousedown', startDraw);
+drawCanvas.addEventListener('mousemove', draw);
+drawCanvas.addEventListener('mouseup', stopDraw);
+drawCanvas.addEventListener('mouseleave', stopDraw);
+drawCanvas.addEventListener('touchstart', startDraw, { passive: false });
+drawCanvas.addEventListener('touchmove', draw, { passive: false });
+drawCanvas.addEventListener('touchend', stopDraw);
+
+document.getElementById('brushSize').addEventListener('input', e => {
+  brushSize = parseInt(e.target.value);
+});
+
+function selectColor(el) {
+  document.querySelectorAll('.swatch').forEach(s => s.classList.remove('selected'));
+  el.classList.add('selected');
+  strokeColor = el.dataset.color;
+  if (eraseMode) toggleEraser(); // switch back to draw
+}
+
+function toggleEraser() {
+  eraseMode = !eraseMode;
+  const btn = document.getElementById('eraserBtn');
+  const badge = document.getElementById('modeBadge');
+  btn.classList.toggle('active', eraseMode);
+  badge.textContent = eraseMode ? 'ERASE' : 'DRAW';
+  badge.classList.toggle('erase', eraseMode);
+}
+
+function clearCanvas() {
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, drawCanvas.width, drawCanvas.height);
+  hasDrawn = false;
+  document.getElementById('proceedBtn').disabled = true;
+}
+
+// ═══════════════════════════════════
+// PHASE TRANSITIONS
+// ═══════════════════════════════════
+function setPhase(n) {
+  const labels = ['DRAW', 'COMPARE', 'RESULT'];
+  document.getElementById('phaseLabel').textContent = labels[n-1];
+  [1,2].forEach(i => {
+    const dot = document.getElementById('dot'+i);
+    dot.className = 'phase-dot' + (i < n ? ' done' : i === n ? ' active' : '');
+  });
+}
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+async function goToCompare() {
+  showScreen('compareScreen');
+  setPhase(2);
+  await startCamera();
+}
+
+function goBack() {
+  stopCamera();
+  showScreen('drawScreen');
+  setPhase(1);
+}
+
+function goBack2() {
+  showScreen('compareScreen');
+  setPhase(2);
+  startCamera();
+}
+
+// ═══════════════════════════════════
+// CAMERA & EDGE DETECTION
+// ═══════════════════════════════════
+const video = document.getElementById('videoEl');
+const edgeCanvas = document.getElementById('edgeCanvas');
+const ec = edgeCanvas.getContext('2d');
+const overlayCanvas = document.getElementById('overlayCanvas');
+const oc = overlayCanvas.getContext('2d');
+const sketchOverlay = document.getElementById('sketchOverlay');
+let stream = null;
+let animFrame = null;
+let currentView = 'camera';
+let lastSimilarity = 0;
+
+async function startCamera() {
+  const permDiv = document.getElementById('camPermission');
+  permDiv.style.display = 'none';
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: false
+    });
+    video.srcObject = stream;
+    video.onloadedmetadata = () => {
+      resizeCompareCanvases();
+      // Set sketch overlay
+      const dataUrl = drawCanvas.toDataURL();
+      sketchOverlay.style.backgroundImage = `url(${dataUrl})`;
+      startCompareLoop();
+    };
+  } catch (err) {
+    permDiv.style.display = 'flex';
+    console.error('Camera error:', err);
+  }
+}
+
+function stopCamera() {
+  if (animFrame) cancelAnimationFrame(animFrame);
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+}
+
+function resizeCompareCanvases() {
+  const container = document.getElementById('compareContainer');
+  const w = container.clientWidth, h = container.clientHeight;
+  edgeCanvas.width = w; edgeCanvas.height = h;
+  overlayCanvas.width = w; overlayCanvas.height = h;
+}
+
+function setView(v) {
+  currentView = v;
+  ['Camera','Edge','Overlay'].forEach(name => {
+    document.getElementById('btn'+name).classList.toggle('active', v === name.toLowerCase());
+  });
+  edgeCanvas.style.opacity = v === 'edge' ? '0.9' : '0';
+  sketchOverlay.style.opacity = v === 'overlay' ? '0.5' : '0';
+}
+
+// Sobel edge detection
+function sobelEdges(imgData, width, height) {
+  const data = imgData.data;
+  const gray = new Float32Array(width * height);
+  
+  // Convert to grayscale
+  for (let i = 0; i < width * height; i++) {
+    gray[i] = 0.299 * data[i*4] + 0.587 * data[i*4+1] + 0.114 * data[i*4+2];
+  }
+  
+  const edges = new Float32Array(width * height);
+  let maxEdge = 0;
+
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      const gx = (
+        -gray[(y-1)*width+(x-1)] + gray[(y-1)*width+(x+1)]
+        - 2*gray[y*width+(x-1)] + 2*gray[y*width+(x+1)]
+        - gray[(y+1)*width+(x-1)] + gray[(y+1)*width+(x+1)]
+      );
+      const gy = (
+        -gray[(y-1)*width+(x-1)] - 2*gray[(y-1)*width+x] - gray[(y-1)*width+(x+1)]
+        + gray[(y+1)*width+(x-1)] + 2*gray[(y+1)*width+x] + gray[(y+1)*width+(x+1)]
+      );
+      const mag = Math.sqrt(gx*gx + gy*gy);
+      edges[y*width+x] = mag;
+      if (mag > maxEdge) maxEdge = mag;
+    }
+  }
+
+  // Normalize & threshold
+  const result = new Uint8Array(width * height);
+  const thresh = maxEdge * 0.2;
+  for (let i = 0; i < result.length; i++) {
+    result[i] = edges[i] > thresh ? 255 : 0;
+  }
+  return result;
+}
+
+// Downsampled comparison for performance
+const COMP_W = 80, COMP_H = 60;
+let sketchEdges = null;
+
+function getSketchEdges() {
+  const tmp = document.createElement('canvas');
+  tmp.width = COMP_W; tmp.height = COMP_H;
+  const tc = tmp.getContext('2d');
+  tc.drawImage(drawCanvas, 0, 0, COMP_W, COMP_H);
+  const imgData = tc.getImageData(0, 0, COMP_W, COMP_H);
+  return sobelEdges(imgData, COMP_W, COMP_H);
+}
+
+function computeSimilarity(a, b) {
+  // Dilated matching — count sketch edge pixels that have a camera edge nearby
+  let sketchCount = 0, matched = 0;
+  const radius = 3;
+  
+  for (let y = 0; y < COMP_H; y++) {
+    for (let x = 0; x < COMP_W; x++) {
+      if (a[y * COMP_W + x] > 128) {
+        sketchCount++;
+        // Check neighborhood in b
+        let found = false;
+        for (let dy = -radius; dy <= radius && !found; dy++) {
+          for (let dx = -radius; dx <= radius && !found; dx++) {
+            const ny = y+dy, nx = x+dx;
+            if (ny >= 0 && ny < COMP_H && nx >= 0 && nx < COMP_W) {
+              if (b[ny*COMP_W+nx] > 128) found = true;
+            }
+          }
+        }
+        if (found) matched++;
+      }
+    }
+  }
+  
+  if (sketchCount === 0) return 0;
+  return matched / sketchCount;
+}
+
+const tmpComp = document.createElement('canvas');
+tmpComp.width = COMP_W; tmpComp.height = COMP_H;
+const tcCtx = tmpComp.getContext('2d');
+
+const tmpEdge = document.createElement('canvas');
+let teCtx;
+
+function startCompareLoop() {
+  if (!sketchEdges) sketchEdges = getSketchEdges();
+  
+  function loop() {
+    if (!stream) return;
+    const vw = video.videoWidth, vh = video.videoHeight;
+    if (!vw || !vh) { animFrame = requestAnimationFrame(loop); return; }
+
+    // Resize edge canvas to container
+    const cw = edgeCanvas.width, ch = edgeCanvas.height;
+
+    // Edge detection on downsampled frame
+    tcCtx.drawImage(video, 0, 0, COMP_W, COMP_H);
+    const frameData = tcCtx.getImageData(0, 0, COMP_W, COMP_H);
+    const cameraEdges = sobelEdges(frameData, COMP_W, COMP_H);
+
+    // Draw edge visualization
+    if (currentView === 'edge') {
+      ec.clearRect(0, 0, cw, ch);
+      // Draw scaled edge output
+      tmpEdge.width = COMP_W; tmpEdge.height = COMP_H;
+      if (!teCtx) teCtx = tmpEdge.getContext('2d');
+      const eData = teCtx.createImageData(COMP_W, COMP_H);
+      for (let i = 0; i < COMP_W * COMP_H; i++) {
+        const v = cameraEdges[i];
+        eData.data[i*4] = v > 128 ? 232 : 0;
+        eData.data[i*4+1] = v > 128 ? 255 : 0;
+        eData.data[i*4+2] = v > 128 ? 0 : 0;
+        eData.data[i*4+3] = v > 128 ? 255 : 0;
+      }
+      teCtx.putImageData(eData, 0, 0);
+      ec.drawImage(tmpEdge, 0, 0, cw, ch);
+    }
+
+    // Compute similarity
+    const sim = computeSimilarity(sketchEdges, cameraEdges);
+    const pct = Math.round(sim * 100);
+    lastSimilarity = pct;
+    updateSimUI(pct);
+
+    animFrame = requestAnimationFrame(loop);
+  }
+  loop();
+}
+
+function updateSimUI(pct) {
+  const simNum = document.getElementById('simNum');
+  const simBar = document.getElementById('simBar');
+  const shutterBtn = document.getElementById('shutterBtn');
+  const note = document.getElementById('thresholdNote');
+
+  simNum.textContent = pct + '%';
+  simBar.style.width = pct + '%';
+
+  if (pct >= 60) {
+    simNum.style.color = 'var(--success)';
+    simBar.style.background = 'var(--success)';
+    shutterBtn.disabled = false;
+    shutterBtn.classList.add('unlocked');
+    note.style.color = 'var(--success)';
+    note.textContent = '✓ Match achieved — shoot!';
+  } else if (pct >= 40) {
+    simNum.style.color = 'var(--accent)';
+    simBar.style.background = 'var(--accent)';
+    shutterBtn.disabled = true;
+    shutterBtn.classList.remove('unlocked');
+    note.style.color = 'var(--muted)';
+    note.textContent = 'Getting closer — align the scene';
+  } else {
+    simNum.style.color = 'var(--text)';
+    simBar.style.background = 'var(--muted)';
+    shutterBtn.disabled = true;
+    shutterBtn.classList.remove('unlocked');
+    note.style.color = 'var(--muted)';
+    note.textContent = 'Need 60% match to shoot';
+  }
+}
+
+// ═══════════════════════════════════
+// CAPTURE
+// ═══════════════════════════════════
+function capturePhoto() {
+  // Flash
+  const flash = document.getElementById('flash');
+  flash.classList.add('go');
+  setTimeout(() => flash.classList.remove('go'), 150);
+
+  // Draw to result canvas
+  const rc = document.getElementById('resultCanvas');
+  rc.width = video.videoWidth;
+  rc.height = video.videoHeight;
+  const rCtx = rc.getContext('2d');
+  rCtx.drawImage(video, 0, 0);
+
+  document.getElementById('resultScore').textContent = lastSimilarity + '%';
+  stopCamera();
+  showScreen('resultScreen');
+  setPhase(2); // keep at compare visually
+  showToast('Photo captured!');
+}
+
+function savePhoto() {
+  const rc = document.getElementById('resultCanvas');
+  const link = document.createElement('a');
+  link.download = 'sketchshot.jpg';
+  link.href = rc.toDataURL('image/jpeg', 0.92);
+  link.click();
+  showToast('Saved!');
+}
+
+// ═══════════════════════════════════
+// UTILS
+// ═══════════════════════════════════
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2000);
+}
+</script>
+</body>
+</html>
