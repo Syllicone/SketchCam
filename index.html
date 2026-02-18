@@ -804,6 +804,17 @@ function sobelEdges(imgData, width, height) {
 const COMP_W = 120, COMP_H = 90;
 let sketchEdges = null;
 
+function clearBorder(edgeData, width, height, borderSize = 2) {
+  // Zero out border pixels to remove frame artifacts
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if (x < borderSize || x >= width - borderSize || y < borderSize || y >= height - borderSize) {
+        edgeData[y * width + x] = 0;
+      }
+    }
+  }
+}
+
 function getSketchEdges() {
   const tmp = document.createElement('canvas');
   tmp.width = COMP_W; tmp.height = COMP_H;
@@ -816,6 +827,7 @@ function getSketchEdges() {
   for (let i = 0; i < result.length; i++) {
     result[i] = edges[i] > thresh ? 255 : 0;
   }
+  clearBorder(result, COMP_W, COMP_H);
   return result;
 }
 
@@ -904,6 +916,7 @@ function startCompareLoop() {
     for (let i = 0; i < cameraEdges.length; i++) {
       cameraEdges[i] = rawEdges[i] > cameraThresh ? 255 : 0;
     }
+    clearBorder(cameraEdges, COMP_W, COMP_H);
 
     // Draw edge visualization
     if (currentView === 'edge') {
