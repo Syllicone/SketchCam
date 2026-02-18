@@ -500,6 +500,15 @@
 </head>
 <body>
 
+<header>
+  <div class="logo">SketchCam</div>
+  <div class="phase-indicator">
+    <div class="phase-dot active" id="dot1"></div>
+    <span id="phaseLabel">DRAW</span>
+    <div class="phase-dot" id="dot2"></div>
+  </div>
+</header>
+
 <main>
   <!-- DRAW SCREEN -->
   <div class="screen active" id="drawScreen">
@@ -665,10 +674,6 @@ drawCanvas.addEventListener('mouseleave', stopDraw);
 drawCanvas.addEventListener('touchstart', startDraw, { passive: false });
 drawCanvas.addEventListener('touchmove', draw, { passive: false });
 drawCanvas.addEventListener('touchend', stopDraw);
-
-document.getElementById('brushSize').addEventListener('input', e => {
-  brushSize = parseInt(e.target.value);
-});
 
 function selectColor(el) {
   document.querySelectorAll('.swatch').forEach(s => s.classList.remove('selected'));
