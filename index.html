@@ -506,7 +506,7 @@
       <div class="compare-hud">
         <div class="similarity-display">
           <div class="similarity-num" id="simNum">0%</div>
-          <div class="similarity-label">Match</div>
+          <div class="similarity-label">F1 Score</div>
           <div class="similarity-bar-wrap">
             <div class="similarity-bar" id="simBar"></div>
           </div>
@@ -736,6 +736,37 @@ function setView(v) {
   sketchOverlay.style.opacity = v === 'overlay' ? '0.5' : '0';
 }
 
+// Gaussian blur for noise suppression
+function gaussianBlur(imgData, width, height) {
+  const kernel = [
+    1/16, 2/16, 1/16,
+    2/16, 4/16, 2/16,
+    1/16, 2/16, 1/16
+  ];
+  const data = imgData.data;
+  const blurred = new Uint8ClampedArray(data.length);
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      let r = 0, g = 0, b = 0;
+      for (let ky = -1; ky <= 1; ky++) {
+        for (let kx = -1; kx <= 1; kx++) {
+          const idx = ((y + ky) * width + (x + kx)) * 4;
+          const k = kernel[(ky + 1) * 3 + (kx + 1)];
+          r += data[idx] * k;
+          g += data[idx + 1] * k;
+          b += data[idx + 2] * k;
+        }
+      }
+      const idx = (y * width + x) * 4;
+      blurred[idx] = r;
+      blurred[idx + 1] = g;
+      blurred[idx + 2] = b;
+      blurred[idx + 3] = data[idx + 3];
+    }
+  }
+  return new ImageData(blurred, width, height);
+}
+
 // Sobel edge detection
 function sobelEdges(imgData, width, height) {
   const data = imgData.data;
@@ -766,17 +797,11 @@ function sobelEdges(imgData, width, height) {
     }
   }
 
-  // Threshold at 50% of max possible (128 for 0-255 scale)
-  const result = new Uint8Array(width * height);
-  const thresh = 128; // Fixed threshold for cleaner edges
-  for (let i = 0; i < result.length; i++) {
-    result[i] = edges[i] > thresh ? 255 : 0;
-  }
-  return result;
+  return { edges, maxEdge };
 }
 
 // Downsampled comparison for performance
-const COMP_W = 80, COMP_H = 60;
+const COMP_W = 120, COMP_H = 90;
 let sketchEdges = null;
 
 function getSketchEdges() {
@@ -785,35 +810,64 @@ function getSketchEdges() {
   const tc = tmp.getContext('2d');
   tc.drawImage(drawCanvas, 0, 0, COMP_W, COMP_H);
   const imgData = tc.getImageData(0, 0, COMP_W, COMP_H);
-  return sobelEdges(imgData, COMP_W, COMP_H);
+  const { edges, maxEdge } = sobelEdges(imgData, COMP_W, COMP_H);
+  const thresh = maxEdge * 0.1; // Low threshold for sketches
+  const result = new Uint8Array(edges.length);
+  for (let i = 0; i < result.length; i++) {
+    result[i] = edges[i] > thresh ? 255 : 0;
+  }
+  return result;
 }
 
-function computeSimilarity(a, b) {
-  // Dilated matching — count sketch edge pixels that have a camera edge nearby
-  let sketchCount = 0, matched = 0;
-  const radius = 5; // Increased for better matching
-  
+function computeSimilarity(sketch, camera) {
+  const radius = 3;
+  let sketchCount = 0, cameraCount = 0;
+  let sketchSupported = 0, cameraCovered = 0;
+
+  // First pass: count totals and check support
   for (let y = 0; y < COMP_H; y++) {
     for (let x = 0; x < COMP_W; x++) {
-      if (a[y * COMP_W + x] > 128) {
-        sketchCount++;
-        // Check neighborhood in b
-        let found = false;
-        for (let dy = -radius; dy <= radius && !found; dy++) {
-          for (let dx = -radius; dx <= radius && !found; dx++) {
-            const ny = y+dy, nx = x+dx;
+      const idx = y * COMP_W + x;
+      const isSketch = sketch[idx] > 128;
+      const isCamera = camera[idx] > 128;
+
+      if (isSketch) sketchCount++;
+      if (isCamera) cameraCount++;
+
+      if (isSketch) {
+        // Check if sketch has camera support
+        let hasSupport = false;
+        for (let dy = -radius; dy <= radius && !hasSupport; dy++) {
+          for (let dx = -radius; dx <= radius && !hasSupport; dx++) {
+            const ny = y + dy, nx = x + dx;
             if (ny >= 0 && ny < COMP_H && nx >= 0 && nx < COMP_W) {
-              if (b[ny*COMP_W+nx] > 128) found = true;
+              if (camera[ny * COMP_W + nx] > 128) hasSupport = true;
             }
           }
         }
-        if (found) matched++;
+        if (hasSupport) sketchSupported++;
+      }
+
+      if (isCamera) {
+        // Check if camera has sketch coverage
+        let hasCoverage = false;
+        for (let dy = -radius; dy <= radius && !hasCoverage; dy++) {
+          for (let dx = -radius; dx <= radius && !hasCoverage; dx++) {
+            const ny = y + dy, nx = x + dx;
+            if (ny >= 0 && ny < COMP_H && nx >= 0 && nx < COMP_W) {
+              if (sketch[ny * COMP_W + nx] > 128) hasCoverage = true;
+            }
+          }
+        }
+        if (hasCoverage) cameraCovered++;
       }
     }
   }
-  
-  if (sketchCount === 0) return 0;
-  return matched / sketchCount;
+
+  const precision = sketchCount > 0 ? sketchSupported / sketchCount : 0;
+  const recall = cameraCount > 0 ? cameraCovered / cameraCount : 0;
+  const f1 = (precision + recall > 0) ? 2 * precision * recall / (precision + recall) : 0;
+  return f1;
 }
 
 const tmpComp = document.createElement('canvas');
@@ -843,7 +897,13 @@ function startCompareLoop() {
     // Edge detection on downsampled frame
     tcCtx.drawImage(video, 0, 0, COMP_W, COMP_H);
     const frameData = tcCtx.getImageData(0, 0, COMP_W, COMP_H);
-    const cameraEdges = sobelEdges(frameData, COMP_W, COMP_H);
+    const blurredFrame = gaussianBlur(frameData, COMP_W, COMP_H);
+    const { edges: rawEdges, maxEdge } = sobelEdges(blurredFrame, COMP_W, COMP_H);
+    const cameraThresh = Math.max(maxEdge * 0.25, 10); // High threshold for camera
+    const cameraEdges = new Uint8Array(rawEdges.length);
+    for (let i = 0; i < cameraEdges.length; i++) {
+      cameraEdges[i] = rawEdges[i] > cameraThresh ? 255 : 0;
+    }
 
     // Draw edge visualization
     if (currentView === 'edge') {
