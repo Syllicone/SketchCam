@@ -766,9 +766,9 @@ function sobelEdges(imgData, width, height) {
     }
   }
 
-  // Normalize & threshold
+  // Threshold at 50% of max possible (128 for 0-255 scale)
   const result = new Uint8Array(width * height);
-  const thresh = maxEdge * 0.2;
+  const thresh = 128; // Fixed threshold for cleaner edges
   for (let i = 0; i < result.length; i++) {
     result[i] = edges[i] > thresh ? 255 : 0;
   }
@@ -890,14 +890,14 @@ function updateSimUI(pct) {
   simNum.textContent = pct + '%';
   simBar.style.width = pct + '%';
 
-  if (pct >= 40) {
+  if (pct >= 75) {
     simNum.style.color = 'var(--success)';
     simBar.style.background = 'var(--success)';
     shutterBtn.disabled = false;
     shutterBtn.classList.add('unlocked');
     note.style.color = 'var(--success)';
     note.textContent = '✓ Match achieved — shoot!';
-  } else if (pct >= 20) {
+  } else if (pct >= 30) {
     simNum.style.color = 'var(--accent)';
     simBar.style.background = 'var(--accent)';
     shutterBtn.disabled = true;
@@ -910,7 +910,7 @@ function updateSimUI(pct) {
     shutterBtn.disabled = true;
     shutterBtn.classList.remove('unlocked');
     note.style.color = 'var(--muted)';
-    note.textContent = 'Need 40% match to shoot';
+    note.textContent = 'Need 75% match to shoot';
   }
 }
 
