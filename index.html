@@ -791,7 +791,7 @@ function getSketchEdges() {
 function computeSimilarity(a, b) {
   // Dilated matching — count sketch edge pixels that have a camera edge nearby
   let sketchCount = 0, matched = 0;
-  const radius = 3;
+  const radius = 5; // Increased for better matching
   
   for (let y = 0; y < COMP_H; y++) {
     for (let x = 0; x < COMP_W; x++) {
@@ -826,8 +826,14 @@ let teCtx;
 function startCompareLoop() {
   if (!sketchEdges) sketchEdges = getSketchEdges();
   
+  let frameCount = 0;
   function loop() {
     if (!stream) return;
+    frameCount++;
+    if (frameCount % 3 !== 0) { // Process every 3rd frame for performance
+      animFrame = requestAnimationFrame(loop);
+      return;
+    }
     const vw = video.videoWidth, vh = video.videoHeight;
     if (!vw || !vh) { animFrame = requestAnimationFrame(loop); return; }
 
