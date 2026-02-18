@@ -811,7 +811,7 @@ function getSketchEdges() {
   tc.drawImage(drawCanvas, 0, 0, COMP_W, COMP_H);
   const imgData = tc.getImageData(0, 0, COMP_W, COMP_H);
   const { edges, maxEdge } = sobelEdges(imgData, COMP_W, COMP_H);
-  const thresh = maxEdge * 0.1; // Low threshold for sketches
+  const thresh = maxEdge * 0.05; // Even lower threshold for sketches to capture more detail
   const result = new Uint8Array(edges.length);
   for (let i = 0; i < result.length; i++) {
     result[i] = edges[i] > thresh ? 255 : 0;
@@ -899,7 +899,7 @@ function startCompareLoop() {
     const frameData = tcCtx.getImageData(0, 0, COMP_W, COMP_H);
     const blurredFrame = gaussianBlur(frameData, COMP_W, COMP_H);
     const { edges: rawEdges, maxEdge } = sobelEdges(blurredFrame, COMP_W, COMP_H);
-    const cameraThresh = Math.max(maxEdge * 0.25, 10); // High threshold for camera
+    const cameraThresh = Math.max(maxEdge * 0.12, 8); // Relaxed threshold for camera edges
     const cameraEdges = new Uint8Array(rawEdges.length);
     for (let i = 0; i < cameraEdges.length; i++) {
       cameraEdges[i] = rawEdges[i] > cameraThresh ? 255 : 0;
@@ -950,7 +950,7 @@ function updateSimUI(pct) {
   simNum.textContent = pct + '%';
   simBar.style.width = pct + '%';
 
-  if (pct >= 75) {
+  if (pct >= 60) {
     simNum.style.color = 'var(--success)';
     simBar.style.background = 'var(--success)';
     shutterBtn.disabled = false;
@@ -970,7 +970,7 @@ function updateSimUI(pct) {
     shutterBtn.disabled = true;
     shutterBtn.classList.remove('unlocked');
     note.style.color = 'var(--muted)';
-    note.textContent = 'Need 75% match to shoot';
+    note.textContent = 'Need 60% match to shoot';
   }
 }
 
